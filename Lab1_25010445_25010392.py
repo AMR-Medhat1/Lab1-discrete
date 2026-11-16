@@ -151,6 +151,37 @@ class LogicalExpressionSolver:
 # Part 2: Inference Engine
 # ======================================================================
 class InferenceRule:
+    def clean(self, exp: Expression) -> str:
+        # "a > b" -> "a>b"  (remove spaces so we can compare strings)
+        return exp.get_representation().replace(" ", "")
+
+    def split(self, text: str):
+        # "a>b" -> ("a", ">", "b")      "~X" -> ("~X", None, None)
+        for op in (">", "v"):
+            if op in text:
+                left, right = text.split(op)
+                return left, op, right
+        return text, None, None
+
+    def negate(self, text: str) -> str:
+        # "P" -> "~P"      "~P" -> "P"
+        if text.startswith("~"):
+            return text[1:]
+        return "~" + text
+
+    def find(self, exp1: Expression, exp2: Expression):
+        # Try the pair in both orders. Return the inferred Expression, or None.
+        first, second = self.clean(exp1), self.clean(exp2)
+        for a, b in ((first, second), (second, first)):
+            result = self.try_rule(a, b)
+            if result is not None:
+                return Expression(result)
+        return None
+
+    def try_rule(self, a: str, b: str):
+        # each rule overrides this: returns the result text, or None
+        raise NotImplementedError
+    
     def matches(self, exp1: Expression, exp2: Expression) -> bool:
         raise NotImplementedError
 
@@ -159,23 +190,80 @@ class InferenceRule:
 
 
 class ModusPonens(InferenceRule):
-    pass  # TODO
+    # P > Q  and  P   =>  Q
+    def try_rule(self, a, b):
+        left, op, right = self.split(a)
+        if op == ">" and b == left:
+            return right
+        return None
+
+    def matches(self, exp1, exp2):
+        return self.find(exp1, exp2) is not None
+
+    def apply(self, exp1, exp2):
+        return self.find(exp1, exp2)
 
 
 class ModusTollens(InferenceRule):
-    pass  # TODO
+    # P > Q  and  ~Q   =>  ~P
+    def try_rule(self, a, b):
+        left, op, right = self.split(a)
+        if op == ">" and b == self.negate(right):
+            return self.negate(left)
+        return None
+
+    def matches(self, exp1, exp2):
+        return self.find(exp1, exp2) is not None
+
+    def apply(self, exp1, exp2):
+        return self.find(exp1, exp2)
 
 
 class HypotheticalSyllogism(InferenceRule):
-    pass  # TODO
+    # P > Q  and  Q > R   =>  P > R
+    def try_rule(self, a, b):
+        left1, op1, right1 = self.split(a)
+        left2, op2, right2 = self.split(b)
+        if op1 == ">" and op2 == ">" and right1 == left2:
+            return left1 + " > " + right2
+        return None
+
+    def matches(self, exp1, exp2):
+        return self.find(exp1, exp2) is not None
+
+    def apply(self, exp1, exp2):
+        return self.find(exp1, exp2)
 
 
 class DisjunctiveSyllogism(InferenceRule):
-    pass  # TODO
+    # P v Q  and  ~P   =>  Q
+    def try_rule(self, a, b):
+        left, op, right = self.split(a)
+        if op == "v" and b == self.negate(left):
+            return right
+        return None
+
+    def matches(self, exp1, exp2):
+        return self.find(exp1, exp2) is not None
+
+    def apply(self, exp1, exp2):
+        return self.find(exp1, exp2)
 
 
 class Resolution(InferenceRule):
-    pass  # TODO
+    # P v Q  and  ~P v R   =>  Q v R
+    def try_rule(self, a, b):
+        left1, op1, right1 = self.split(a)
+        left2, op2, right2 = self.split(b)
+        if op1 == "v" and op2 == "v" and left2 == self.negate(left1):
+            return right1 + " v " + right2
+        return None
+
+    def matches(self, exp1, exp2):
+        return self.find(exp1, exp2) is not None
+
+    def apply(self, exp1, exp2):
+        return self.find(exp1, exp2)
 
 
 class InferenceEngine:
