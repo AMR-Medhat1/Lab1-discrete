@@ -28,14 +28,8 @@ class Expression:
 class LogicalExpressionSolver:
     # values: e.g. {"P": True, "Q": False, "R": True}
     # raises ValueError for a wrong expression
-        # Grammar (lowest to highest precedence):
-    #   implies := or ( '>' implies )?        (right-associative)
-    #   or      := and ( 'v' and )*
-    #   and     := not ( '^' not )*
-    #   not     := '~' not | atom
-    #   atom    := VARIABLE | '(' implies ')'
 
-    # ---------- public API ----------
+    # public methods
     def get_variables(self, expression: Expression) -> list:
         """Parses the expression (raises ValueError if invalid) and
         returns its variables in sorted order."""
@@ -48,19 +42,19 @@ class LogicalExpressionSolver:
         ast = self._parse(expression)
         return self._eval(ast, values)
 
-    # ---------- tokenizer ----------
+    #  tokenizer 
     def _tokenize(self, text: str) -> list:
         tokens = []
         for ch in text:
             if ch.isspace():
                 continue
-            if ch in "()~^v>" or ("A" <= ch <= "Z"):
+            if ch in "()~^v>" or ( ch.isalpha() and ch != "v"):
                 tokens.append(ch)
             else:
                 raise ValueError(f"Invalid character: {ch!r}")
         return tokens
 
-    # ---------- parser (builds an AST of tuples) ----------
+    # parser
     def _parse(self, expression: Expression):
         text = expression.get_representation()
         if not text:
@@ -83,24 +77,22 @@ class LogicalExpressionSolver:
         return tok
 
     def _parse_implies(self):
-        left = self._parse_or()
+        left = self._parse_or_and()
         if self._peek() == ">":
             self._next()
             return ("imp", left, self._parse_implies())
         return left
 
-    def _parse_or(self):
-        left = self._parse_and()
-        while self._peek() == "v":
-            self._next()
-            left = ("or", left, self._parse_and())
-        return left
-
-    def _parse_and(self):
+    def _parse_or_and(self):
         left = self._parse_not()
-        while self._peek() == "^":
-            self._next()
-            left = ("and", left, self._parse_not())
+        op = None
+        while self._peek() in ("^", "v"):
+            tok = self._next()
+            if op is not None and tok != op:
+                raise ValueError("Mixing ^ and v needs brackets") 
+            
+            op = tok
+            left = ("and" if op =="^" else "or", left, self._parse_not())
         return left
 
     def _parse_not(self):
@@ -120,7 +112,7 @@ class LogicalExpressionSolver:
             return ("var", tok)
         raise ValueError(f"Unexpected token: {tok!r}")
 
-    # ---------- evaluation ----------
+    # evaluation
     def _collect(self, node, found: set) -> None:
         if node[0] == "var":
             found.add(node[1])
