@@ -143,26 +143,26 @@ class LogicalExpressionSolver:
 # Part 2: Inference Engine
 # ======================================================================
 class InferenceRule:
+        # returns a string with no spaces 
     def clean(self, exp: Expression) -> str:
-        # "a > b" -> "a>b"  (remove spaces so we can compare strings)
         return exp.get_representation().replace(" ", "")
 
+        # splits text aroud ^ or v
     def split(self, text: str):
-        # "a>b" -> ("a", ">", "b")      "~X" -> ("~X", None, None)
         for op in (">", "v"):
             if op in text:
                 left, right = text.split(op)
                 return left, op, right
         return text, None, None
 
+    
     def negate(self, text: str) -> str:
-        # "P" -> "~P"      "~P" -> "P"
         if text.startswith("~"):
             return text[1:]
         return "~" + text
 
-    def find(self, exp1: Expression, exp2: Expression):
         # Try the pair in both orders. Return the inferred Expression, or None.
+    def find(self, exp1: Expression, exp2: Expression):
         first, second = self.clean(exp1), self.clean(exp2)
         for a, b in ((first, second), (second, first)):
             result = self.try_rule(a, b)
@@ -170,8 +170,8 @@ class InferenceRule:
                 return Expression(result)
         return None
 
-    def try_rule(self, a: str, b: str):
         # each rule overrides this: returns the result text, or None
+    def try_rule(self, a: str, b: str):
         raise NotImplementedError
     
     def matches(self, exp1: Expression, exp2: Expression) -> bool:
@@ -182,7 +182,7 @@ class InferenceRule:
 
 
 class ModusPonens(InferenceRule):
-    # P > Q  and  P   =>  Q
+    # P > Q  and  P   implies  Q
     def try_rule(self, a, b):
         left, op, right = self.split(a)
         if op == ">" and b == left:
@@ -197,7 +197,7 @@ class ModusPonens(InferenceRule):
 
 
 class ModusTollens(InferenceRule):
-    # P > Q  and  ~Q   =>  ~P
+    # P > Q  and  ~Q   implies  ~P
     def try_rule(self, a, b):
         left, op, right = self.split(a)
         if op == ">" and b == self.negate(right):
@@ -212,7 +212,7 @@ class ModusTollens(InferenceRule):
 
 
 class HypotheticalSyllogism(InferenceRule):
-    # P > Q  and  Q > R   =>  P > R
+    # P > Q  and  Q > R   implies  P > R
     def try_rule(self, a, b):
         left1, op1, right1 = self.split(a)
         left2, op2, right2 = self.split(b)
@@ -228,7 +228,7 @@ class HypotheticalSyllogism(InferenceRule):
 
 
 class DisjunctiveSyllogism(InferenceRule):
-    # P v Q  and  ~P   =>  Q
+    # P v Q  and  ~P   implies  Q
     def try_rule(self, a, b):
         left, op, right = self.split(a)
         if op == "v" and b == self.negate(left):
@@ -243,7 +243,7 @@ class DisjunctiveSyllogism(InferenceRule):
 
 
 class Resolution(InferenceRule):
-    # P v Q  and  ~P v R   =>  Q v R
+    # P v Q  and  ~P v R   implies  Q v R
     def try_rule(self, a, b):
         left1, op1, right1 = self.split(a)
         left2, op2, right2 = self.split(b)
@@ -262,7 +262,7 @@ class InferenceEngine:
     def __init__(self):
         self.rules = []
         self.expressions = []
-        self.applied_rule = None      # remembers which rule worked
+        self.applied_rule = None      
 
     def add_rule(self, rule: InferenceRule) -> None:
         self.rules.append(rule)
@@ -271,7 +271,6 @@ class InferenceEngine:
         self.expressions.append(exp)
 
     def apply_rules(self) -> Expression:
-        # None if it cannot be inferred
         self.applied_rule = None
         if len(self.expressions) < 2:
             return None
@@ -283,16 +282,8 @@ class InferenceEngine:
         return None
 
 
-# returns the program output, e.g. "Y v Z (Resolution)"
 def infer(expr1: str, expr2: str) -> str:
-    names = {
-        "ModusPonens": "Modus ponens",
-        "ModusTollens": "Modus tollens",
-        "HypotheticalSyllogism": "Hypothetical syllogism",
-        "DisjunctiveSyllogism": "Disjunctive syllogism",
-        "Resolution": "Resolution",
-    }
-
+    
     engine = InferenceEngine()
     engine.add_rule(ModusPonens())
     engine.add_rule(ModusTollens())
@@ -305,7 +296,7 @@ def infer(expr1: str, expr2: str) -> str:
     result = engine.apply_rules()
     if result is None:
         return "The input expression cannot be inferred"
-    rule_name = names[type(engine.applied_rule).__name__]
+    rule_name = type(engine.applied_rule).__name__
     return result.get_representation() + " (" + rule_name + ")"
 
 
@@ -323,7 +314,7 @@ def run_part1():
     solver = LogicalExpressionSolver()
     expression = Expression(input("Expression: "))
     try:
-        variables = solver.get_variables(expression)   # also checks the syntax
+        variables = solver.get_variables(expression)   
         values = {}
         for var in variables:
             values[var] = ask_bool(var)
