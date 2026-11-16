@@ -268,27 +268,100 @@ class Resolution(InferenceRule):
 
 class InferenceEngine:
     def __init__(self):
-        pass  # TODO
+        self.rules = []
+        self.expressions = []
+        self.applied_rule = None      # remembers which rule worked
 
     def add_rule(self, rule: InferenceRule) -> None:
-        raise NotImplementedError  # TODO
+        self.rules.append(rule)
 
     def add_expression(self, exp: Expression) -> None:
-        raise NotImplementedError  # TODO
+        self.expressions.append(exp)
 
     def apply_rules(self) -> Expression:
         # None if it cannot be inferred
-        raise NotImplementedError  # TODO
+        self.applied_rule = None
+        if len(self.expressions) < 2:
+            return None
+        exp1, exp2 = self.expressions[0], self.expressions[1]
+        for rule in self.rules:
+            if rule.matches(exp1, exp2):
+                self.applied_rule = rule
+                return rule.apply(exp1, exp2)
+        return None
 
 
 # returns the program output, e.g. "Y v Z (Resolution)"
 def infer(expr1: str, expr2: str) -> str:
-    raise NotImplementedError  # TODO
+    names = {
+        "ModusPonens": "Modus ponens",
+        "ModusTollens": "Modus tollens",
+        "HypotheticalSyllogism": "Hypothetical syllogism",
+        "DisjunctiveSyllogism": "Disjunctive syllogism",
+        "Resolution": "Resolution",
+    }
+
+    engine = InferenceEngine()
+    engine.add_rule(ModusPonens())
+    engine.add_rule(ModusTollens())
+    engine.add_rule(HypotheticalSyllogism())
+    engine.add_rule(DisjunctiveSyllogism())
+    engine.add_rule(Resolution())
+    engine.add_expression(Expression(expr1))
+    engine.add_expression(Expression(expr2))
+
+    result = engine.apply_rules()
+    if result is None:
+        return "The input expression cannot be inferred"
+    rule_name = names[type(engine.applied_rule).__name__]
+    return result.get_representation() + " (" + rule_name + ")"
+
+
+def ask_bool(name: str) -> bool:
+    while True:
+        answer = input(name + " = ").strip().lower()
+        if answer in ("true", "t", "1"):
+            return True
+        if answer in ("false", "f", "0"):
+            return False
+        print("Please type true or false")
+
+
+def run_part1():
+    solver = LogicalExpressionSolver()
+    expression = Expression(input("Expression: "))
+    try:
+        variables = solver.get_variables(expression)   # also checks the syntax
+        values = {}
+        for var in variables:
+            values[var] = ask_bool(var)
+        result = solver.evaluate_expression(expression, values)
+        print("true" if result else "false")
+    except ValueError:
+        print("Wrong expression")
+
+
+def run_part2():
+    expr1 = input("First expression: ")
+    expr2 = input("Second expression: ")
+    print(infer(expr1, expr2))
 
 
 def main():
-    pass  # TODO: your program (input / output)
-
+    while True:
+        print()
+        print("1) Evaluate a logical expression")
+        print("2) Apply inference rules")
+        print("0) Exit")
+        choice = input("Choice: ").strip()
+        if choice == "1":
+            run_part1()
+        elif choice == "2":
+            run_part2()
+        elif choice == "0":
+            break
+        else:
+            print("Invalid choice")
 
 if __name__ == "__main__":
     main()
